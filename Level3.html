@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8">
         <title>Level3</title>
-        <script type="text/javascript" src="../d3js/d3.v7.min.js"></script>
+        <script src="https://d3js.org/d3.v6.js"></script>
         <style>
             /* 提示框 */
             .tooltip {
@@ -174,34 +174,7 @@
                             .on("end", dragended)
                     )
                     
-                    .on('mouseover', function (event,d) {
-                        let count = analysis.find( node => node.id === d.id)
-                        let r = Math.log(count.count < 2 ? 2 : count.count) / Math.log(1.6) + 6
-                        d3.select(this).transition()
-                            .attr("r", r);
-
-                        tooltip.transition()
-                            .duration(250) // 设置transition效果的速度，默认为500ms
-                            .style("opacity", 1);
-
-                        tooltip.html(
-                            "<p> Name: " + d.fullname +  "</p>"
-                        )
-                            // 设置tooltip距离鼠标的相对位置
-                            .style("left", (event.pageX + 15) + "px")
-                            .style("top", (event.pageY - 28) + "px");
-
-                    })
-                    .on('mouseout', function (event,d) {
-                        let count = analysis.find( node => node.id == d.id)
-                        let r = Math.log(count.count < 2 ? 2 : count.count) / Math.log(1.6) + 3
-                        d3.select(this).transition().attr("r", r);
-
-                        tooltip.transition()
-                            .duration(250)
-                            .style("opacity", 0);
-
-                    });
+                   
 
                 // 定义simulation内部计时器tick每次结束时的动作
                 simulation.on("tick", () => {
@@ -413,26 +386,55 @@
                       
                 });
 
-                //节点点击效果
-                nodes.on("click",function(e,d) {
-                    d3.select(this)
-                        .transition().duration(400)
-                        .attr('opacity', 0.5)
-                        .transition().duration(300)
-                        .attr('opacity', 1);
-                    
-                    d3.selectAll("." + "rect-" + d.id)
-                        .transition().duration(400)
-                        .attr('opacity', 0.5)
-                        .attr("stroke","black")
-                        .attr("stroke-width",3)
-                        .transition().duration(400)
-                        .attr('opacity', 1)
-                        .attr("stroke","none")
+                //节点悬浮效果
+               
+               
+                nodes.on('mouseover', function (event,d) {
+                        //半径变大
+                        let count = analysis.find( node => node.id === d.id)
+                        let r = Math.log(count.count < 2 ? 2 : count.count) / Math.log(1.6) + 6
+                        d3.select(this).transition()
+                            .attr("r", r);
+                        
+                        //提示框
+                        tooltip.transition()
+                            .duration(250) // 设置transition效果的速度，默认为500ms
+                            .style("opacity", 1);
+
+                        tooltip.html(
+                            "<p> Name: " + d.fullname +  "</p>"
+                        )
+                            // 设置tooltip距离鼠标的相对位置
+                            .style("left", (event.pageX + 15) + "px")
+                            .style("top", (event.pageY - 28) + "px");
+
+                        //linked view
+                        d3.selectAll("." + "rect-" + d.id)
+                            .transition().duration(1000)
+                            .attr('opacity', 1)
+                            .attr("stroke","black")
+                            .attr("stroke-width",3)
+                    })
+                    nodes.on('mouseout', function (event,d) {
+                        let count = analysis.find( node => node.id == d.id)
+                        let r = Math.log(count.count < 2 ? 2 : count.count) / Math.log(1.6) + 3
+                        d3.select(this).transition().attr("r", r);
+
+                        tooltip.transition()
+                            .duration(250)
+                            .style("opacity", 0);
+                          
+                        //linked view
+                        d3.selectAll("." + "rect-" + d.id)
+                            .transition().duration(1000)
+                            .attr('opacity', 1)
+                            .attr("stroke","none")
+
+                    });
     
     
                     
-                });
+                
   
             });
                
