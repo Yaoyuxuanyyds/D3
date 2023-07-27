@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>Level3</title>
+        <script type="text/javascript" src="../d3js/d3.v7.min.js"></script>
+        <style>
+            /* 提示框 */
+            .tooltip {
+                position: absolute;
+                padding: 7px;
+                font-size: 0.9em;
+                pointer-events: none;
+                background: #fff;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+
+                /* 添加阴影效果 */
+                -moz-box-shadow:    3px 3px 10px 0px rgba(0, 0, 0, 0.25);
+                -webkit-box-shadow: 3px 3px 10px 0px rgba(0, 0, 0, 0.25);
+                box-shadow:         3px 3px 10px 0px rgba(0, 0, 0, 0.25);
+
+            }
+            .tooltip p {
+                margin: 0;
+                padding: 0;
+            }
+            .tooltip table {
+                margin: 0;
+                padding: 0;
+                border-collapse: collapse;
+            }
+
+            #xLabels {
+                text-anchor: end;
+                font-size: 6.5px;
+                fill: black;
+                writing-mode: vertical-rl;
+                font-weight: bold;
+            }
+            #yLabels {
+                text-anchor: end;
+                font-size: 6.5px;
+                fill: black;
+                font-weight: bold;
+            }
+
+            #legendtag {
+                font-size: 11px;
+                font-weight: bold;
+            }
+
+
+        </style>
+    </head>
+    <body>
+        <div id="map"></div>
+
+        <script>
+            d3.json("HKUST_coauthor_graph.json").then(function(d){
+
+        //数据前期处理
+
+            
+                var data_nodes = d.nodes;
+                var data_edges = d.edges;
+                var Nodes = [];
+                var index = [];
+                data_nodes.forEach((d,i) => {
+                    if (d.dept == "CSE"){
+                        index.push(i);
+                    }
+                });
+                index.forEach((d) => {
+                    Nodes.push(data_nodes[d]);
+                });
+
+                const Edges = data_edges.filter(edge => {
+                    const sourceNode = Nodes.find(node => node.id === edge.source);
+                    const targetNode = Nodes.find(node => node.id === edge.target);
+                    return sourceNode && targetNode && sourceNode.dept === "CSE";
+                });
+
+                //获取合作数
+                const analysis = Nodes.map(node => {
+                    const id = node.id;
+                    const count = data_edges.reduce((total, edge) => {
+                        if (edge.source === id || edge.target === id) {
+                        return total + 1;
+                        }
+                        return total;
+                    }, 0);
+                    return { id, count };
+                });
+
+                console.log(Nodes);
+                console.log(Edges);
+                console.log(analysis);
+
+
+        //绘制力导图
+
+
+                 // 设置画布大小-四周留间距
+                let margin = {top: 10, right: 30, bottom: 30, left: 10},
+                    width = 520 - margin.left - margin.right,
+                    height = 780 - margin.top - margin.bottom;
+
+                // 创建SVG元素并添加到map中
+                let svg_map = d3.select("#map")
+                    .append("svg")
+                    .attr("width", width + margin.left )
+                    .attr("height", height + margin.top + margin.bottom);
+                
+                // 创建一个力学模拟器
+                let simulation = d3.forceSimulation(Nodes)
+		                // 连接力
+                    .force("link", d3.forceLink(Edges)	
+                            .id(d => d.id) 	// 每个节点的id的获取方式
+                            .strength( 0.5))
+                            //.strength( d.publications.length / d3.max(Edges, d => d.publications.length))) 
+                        // 万有引力
+                    .force("charge", d3.forceManyBody().strength(-125)) 
+                        // 用指定的x坐标和y坐标创建一个新的居中力，如果未指定x和y，则默认为⟨0,0⟩
+                    .force("center", d3.forceCenter(width / 2 + 20 , height / 2 - 50));
+
+                // 定义颜色比例尺
+                var ColorScale = d3.scaleQuantize()
+                  //.domain([d3.min(analysis, (d,i) => Math.log(analysis[i].count < 2 ? 2 : analysis[i].count) / Math.log(1.5)),d3.max(analysis, (d,i) => Math.log(analysis[i].count < 2 ? 2 : analysis[i].count) / Math.log(1.5))])
+                  .domain([d3.min(analysis, (d,i) => analysis[i].count),d3.max(analysis, (d,i) => analysis[i].count)])
+                  .range(["green","skyblue","blue","yellow","orange","red"]);
+
+
+                // 定义人物节点之间连线的信息
+                let link = svg_map.append("g")
+                    .attr("stroke", "#999")
+                    .attr("stroke-opacity", 0.6)
+                    .selectAll("line") // 用line元素来绘制
+                    .data(Edges) // 绑定
+                    .join("line")
+                     // 连线粗细通过publication计算
+                     .attr("stroke-width",2)
+                    //.attr("stroke-width", d => Math.sqrt(d.publications.length / d3.max(Edges, d => d.publications.length)));
+                  
+                // 定义信息提示框
+                let tooltip = d3.select("body").append("div")
+                    .attr("class", "tooltip")
+                    .style("opacity", 0);
+
+                // 定义人物节点
+                let nodes = svg_map.append("g")
+                    .attr("stroke", "#fff")
+                    .attr("stroke-width", 1.5)
+                    .selectAll("circle") // 人物节点通过圆来绘制 
+                    .data(Nodes)// 为人物节点绑定nodes数据
+                    .join("circle")
+                    //用合作者数计算半径
+                    .attr("r",function(d,i){
+                        return Math.log(analysis[i].count < 2 ? 2 : analysis[i].count) / Math.log(1.6) + 3;
+                    })
+                    //为每个node添加id
+                    .attr("id",function(d,i){
+                        return "circle-" + d.id;
+                    })
+                   
+                    // 设置节点的填充色
+                    .attr("fill", (d,i) => ColorScale(analysis[i].count < 2 ? 2 : analysis[i].count / 0.5))
+                    .call(
+                // 以定义的这些节点为参数，调用drag()函数
+                // 绑定拖拽函数的三个钩子，即拖拽开始、拖拽中、拖拽结束
+                        d3.drag()
+                            .on("start", dragstarted)
+                            .on("drag", dragged)
+                            .on("end", dragended)
+                    )
+                    
+                    .on('mouseover', function (event,d) {
+                        let count = analysis.find( node => node.id === d.id)
+                        let r = Math.log(count.count < 2 ? 2 : count.count) / Math.log(1.6) + 6
+                        d3.select(this).transition()
+                            .attr("r", r);
+
+                        tooltip.transition()
+                            .duration(250) // 设置transition效果的速度，默认为500ms
+                            .style("opacity", 1);
+
+                        tooltip.html(
+                            "<p> Name: " + d.fullname +  "</p>"
+                        )
+                            // 设置tooltip距离鼠标的相对位置
+                            .style("left", (event.pageX + 15) + "px")
+                            .style("top", (event.pageY - 28) + "px");
+
+                    })
+                    .on('mouseout', function (event,d) {
+                        let count = analysis.find( node => node.id == d.id)
+                        let r = Math.log(count.count < 2 ? 2 : count.count) / Math.log(1.6) + 3
+                        d3.select(this).transition().attr("r", r);
+
+                        tooltip.transition()
+                            .duration(250)
+                            .style("opacity", 0);
+
+                    });
+                   console.log(nodes);
+
+                // 定义simulation内部计时器tick每次结束时的动作
+                simulation.on("tick", () => {
+                    // 每次tick计时到时，连接线的响应动作
+                    link.attr("x1", d => d.source.x)
+                        .attr("y1", d => d.source.y)
+                        .attr("x2", d => d.target.x)
+                        .attr("y2", d => d.target.y);
+
+                    // 每次tick计时到时，节点的响应动作
+                    nodes.attr("cx", d => d.x)
+                        .attr("cy", d => d.y);
+                });
+
+
+                // 定义开始拖拽节点时的动作，注意v6版本是通过event返回的函数参数来处理的 
+                function dragstarted(event) {
+        
+                    // 当开始拖动时，restart()方法重新启动模拟器的内部计时器并返回模拟器，
+                    // alphaTarget(0.3) => alpha将保持在0.3左右，使模拟不断移动
+                    if (!event.active) simulation.alphaTarget(0.3).restart();
+                        event.subject.fx = event.subject.x;
+                        event.subject.fy = event.subject.y;
+                }
+
+                // 定义拖拽中的动作
+                function dragged(event) {
+                    event.subject.fx = event.x;
+                    event.subject.fy = event.y;
+                }
+
+                // 定义拖拽结束的动作
+                // 在拖动结束时，alphaTarget被设置回0，因此再次稳定下来，这就是阻力相互作用后力返回的原因
+                function dragended(event) {
+                    if (!event.active) simulation.alphaTarget(0);
+                    event.subject.fx = null;
+                    event.subject.fy = null;
+                }
+
+
+
+        //绘制表格
+              
+
+                // 创建一个颜色比例尺
+                const colorScale2 = d3.scaleQuantize()
+                    .domain([0, d3.max(Edges, d => d.publications.length)]) // 根据合作作品数确定颜色范围
+                    .range(["green","skyblue","blue","yellow","orange","red"]); // 颜色范围
+
+                // 创建SVG容器
+                const svg_table = d3.select("#map")
+                    .append("svg")
+                    .attr("width", 730) // 设置SVG宽度
+                    .attr("height", 750); // 设置SVG高度
+
+                // 绘制小方块
+                const squareSize = 10.3; // 小方块的大小
+                const padding = 2; // 小方块之间的间距
+
+                // 创建一个矩阵，用于存储每个教授的合作作品数
+                const matrix = [];
+                Nodes.forEach((node, i) => {
+                    const row = [];
+                    Nodes.forEach((_, j) => {
+                        row.push({
+                            "count": 0,
+                            "id_s": "rect-" + node.id,
+                            "id_t": "rect-" + Nodes[j].id
+                        }); // 初始化
+                    });
+                    matrix.push(row);
+                });
+
+                // 更新矩阵的值
+                Edges.forEach(edge => {
+                    const sourceIndex = Nodes.findIndex(node => node.id === edge.source.id);
+                    const targetIndex = Nodes.findIndex(node => node.id === edge.target.id);
+                    if (sourceIndex !== targetIndex) { 
+                        matrix[sourceIndex][targetIndex] = { 
+                                                                "count": edge.publications.length,
+                                                                "id_s": edge.source.id,
+                                                                "id_t": edge.target.id
+                                                            }
+                        matrix[targetIndex][sourceIndex] = { 
+                                                                "count": edge.publications.length,
+                                                                "id_s": edge.source.id,
+                                                                "id_t": edge.target.id
+                                                            }
+                    }
+                });
+                console.log(matrix);
+
+
+                // 创建横轴标签
+                
+                const xLabels = svg_table.append("g")
+                .attr("transform", `translate(0, ${Nodes.length * (squareSize + padding) + 20})`); // 将标签放置在小方块下方一定距离的位置
+
+                xLabels.selectAll("text")
+                    .data(Nodes)
+                    .enter()
+                    .append("text")
+                    .text(d => d.fullname)
+                    .attr("x", (d, i) => (i + 0.5) * (squareSize + padding)) // 将标签与小方块位置对齐
+                    .attr("y", 10)
+                    .attr("transform","translate(95,-530)")
+                    .attr("id","xLabels");
+               
+                
+
+                // 创建纵轴标签
+                const yLabels = svg_table.append("g")
+                    .attr("transform", "translate(99, 70)"); // 将标签放置在小方块左侧一定距离的位置
+
+                yLabels.selectAll("text")
+                    .data(Nodes)
+                    .enter()
+                    .append("text")
+                    .text(d => d.fullname)
+                    .attr("x", -10)
+                    .attr("y", (d, i) => (i + 0.5) * (squareSize + padding)) // 将标签与小方块位置对齐
+                    .attr("id","yLabels");
+                
+
+                // 绘制小方块
+                var rects = svg_table.selectAll("rect")
+                    .data(matrix.flat()) // 使用flat()将二维矩阵转换为一维数组
+                    .enter()  
+                    .append("rect")
+                    //为每个小方块添加类属性
+                    .attr("class",function(d,i){
+                        let class1 = "rect-" + Nodes[i % Nodes.length].id;
+                        let class2 = "rect-" + Nodes[Math.floor(i / Nodes.length)].id;
+                        return  class1 + " " + class2;
+                    })
+                    .attr("x", (d, i) => (i % Nodes.length) * (squareSize + padding))
+                    .attr("y", (d, i) => Math.floor(i / Nodes.length) * (squareSize + padding))
+                    .attr("transform","translate(94,70)")
+                    .attr("width", squareSize)
+                    .attr("height", squareSize)
+                    .attr("fill", d => (d.count > 0 ? colorScale2(d.count*2) : "lightgray"));
+
+
+                // 创建图例
+                
+                const legend = svg_table.append("g")
+                .attr("transform", "translate(665, 100)"); // 图例的位置
+
+                 //创建颜色集
+                const colors = ["lightgray","green","skyblue","blue","yellow","orange","red"];
+                const legendSize = 20;
+
+
+                 //创建图例色块
+                var legendrect = legend.selectAll("rect")
+                    .data(colors)
+                    .enter()
+                    .append("rect")
+                    .attr("fill", d => d)
+                    .attr("x",0)
+                    .attr("y",(d,i) => i*(legendSize + 20))
+                    .attr("height", legendSize)
+                    .attr("width", legendSize);
+
+                //创建图例标签
+                var legendtag = legend.selectAll("text")
+                    .data([" 0 ","1 ~ 6","7 ~ 13","14 ~ 20","21 ~ 27","28 ~ 35","35 ~ 84"])
+                    .enter()
+                    .append("text")
+                    .text( d => d)
+                    .attr("id","legendtag")
+                    .attr("x",23)
+                    .attr("y",(d,i) => i*(legendSize + 20) + 13)
+                    .attr("id","legendtag");
+        
+
+        //添加交互效果
+
+                //矩形点击效果
+                rects.on('click', function(e, d) {
+                    d3.select(this)
+                        .transition().duration(400)
+                        .attr('opacity', 0.5)
+                        .transition().duration(200)
+                        .attr('opacity', 1);
+    
+                    //let sourceIndex = Nodes.findIndex(node => node.id === d.id_s);
+                    //let targetIndex = Nodes.findIndex(node => node.id === d.id_t);
+                    //let selectedNode_s = Nodes[sourceIndex];
+                    //let selectedNode_t = Nodes[targetIndex];
+                    let count_s = analysis.find( node => node.id === d.id_s);
+                    let count_t = analysis.find( node => node.id === d.id_t)
+
+                    d3.select('#' + "circle-" + d.id_s)
+                        .transition().duration(400)
+                        .attr('opacity', 0.5)
+                        .attr("r",15)
+                        .transition().duration(300)
+                        .attr('opacity', 1)
+                        .attr("r",Math.log(count_s.count < 2 ? 2 : count_s.count) / Math.log(1.6) + 3);
+
+                    d3.select("#" + "circle-" + d.id_t)
+                        .transition().duration(400)
+                        .attr('opacity', 0.5)
+                        .attr("r",15)
+                        .transition().duration(300)
+                        .attr('opacity', 1)
+                        .attr("r",Math.log(count_t.count < 2 ? 2 : count_t.count) / Math.log(1.6) + 3);
+                      
+                });
+
+                //节点点击效果
+                nodes.on("click",function(e,d) {
+                    d3.select(this)
+                        .transition().duration(400)
+                        .attr('opacity', 0.5)
+                        .transition().duration(300)
+                        .attr('opacity', 1);
+                    
+                    d3.selectAll("." + "rect-" + d.id)
+                        .transition().duration(400)
+                        .attr('opacity', 0.5)
+                        .attr("stroke","black")
+                        .attr("stroke-width",3)
+                        .transition().duration(400)
+                        .attr('opacity', 1)
+                        .attr("stroke","none")
+    
+    
+                    
+                });
+  
+            });
+               
+
+                 
+            
+        
+        </script>
+        
+    </body>
+</html>
