@@ -415,7 +415,7 @@
                             .transition().duration(1000)
                             .attr('opacity', 1)
                             .attr("stroke","black")
-                            .attr("stroke-width",3)
+                            .attr("stroke-width",3);
                     })
                     nodes.on('mouseout', function (event,d) {
                         let count = analysis.find( node => node.id == d.id)
@@ -425,13 +425,12 @@
                         tooltip.transition()
                             .duration(250)
                             .style("opacity", 0);
-                          
+                        
                         //linked view
                         d3.selectAll("." + "rect-" + d.id)
                             .transition().duration(1000)
                             .attr('opacity', 1)
-                            .attr("stroke","none")
-
+                            .attr("stroke","none");
                     });
     
     
