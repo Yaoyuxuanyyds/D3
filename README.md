@@ -9,4 +9,5 @@ It analyzes the max and min monthly temperatures of Hong Kong over the years.
 Level3 corresponds to Level3.html.
 It analyzes the collaboration relationship between researchers of HKUST CSE.
 
+ Dataset include a json and a csv.
 
