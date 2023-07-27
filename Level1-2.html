@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>D3 Test 1</title>
+        <script type="text/javascript" src="../d3js/d3.v7.min.js"></script>
+        <link rel="stylesheet" href="style_Level1-2.css">
+    </head>
+
+    <body>
+        <script>
+        d3.csv("temperature_daily.csv").then(function(dataset) {
+                console.log(dataset);
+          //每月最高最低气温获取
+              // 将日期列转换为JavaScript的Date对象
+                dataset.forEach(function(d) {
+                    d.date = new Date(d.date);
+                });
+
+              // 提取月份和年份信息
+                dataset.forEach(function(d) {
+                    d.month = d.date.getMonth() + 1; 
+                    d.year = d.date.getFullYear();
+                });
+                
+                var groupedData = d3.group(dataset, d => d.year, d => d.month);
+                   
+              // 对每个月份的数据进行聚合，计算最高气温和最低气温
+                var monthlyTemperatures = []; 
+                groupedData.forEach(function(monthData, year) {
+                    monthData.forEach(function(month, monthNum) {
+                        var maxTemp = d3.max(month, d => d.maxTemperature);
+                        var minTemp = d3.min(month, d => d.minTemperature);
+                        monthlyTemperatures.push({
+                                year: year,
+                                month: monthNum,
+                                maxTemperature: maxTemp,
+                                minTemperature: minTemp
+                        });
+                    });  
+                });
+                 
+                console.log(groupedData);
+          //绘制图表
+
+              // 设置SVG元素的大小和位置
+                var svgWidth = 1200;
+                var svgHeight = 700;
+                var margin = {top: 50, right: 50, bottom: 50, left: 18};
+                var chartWidth = svgWidth - margin.left - margin.right - 50;
+                var chartHeight = svgHeight - margin.top - margin.bottom;
+                var rectPaddingx = 8;
+                var rectPaddingy =8;
+                var rectx = 30;
+                var recty = 10;
+              // 定义每个小矩形的宽度和高度
+                var rectWidth = chartWidth / (monthlyTemperatures.length / 12) -0.5 ;
+                var rectHeight = chartHeight / 12 ;
+
+              // 创建SVG元素
+                var svg = d3.select("body")
+                  .append("svg")
+                  .attr("width", svgWidth)
+                  .attr("height", svgHeight);
+
+              // 创建一个矩形来表示整个图表区域
+                svg.append("rect")
+                  .attr("x", margin.left)
+                  .attr("y", margin.top)
+                  .attr("width", chartWidth)
+                  .attr("height", chartHeight)
+                  .attr("fill", "none")
+                  .attr("stroke", "none");
+
+              // 定义颜色比例尺
+                var lowColorScale = d3.scaleQuantize()
+                  .domain([d3.min(monthlyTemperatures, function(d) { return + d.minTemperature; }), d3.max(monthlyTemperatures, function(d) { return + d.minTemperature; })])
+                  .range(["#2319EF","#2777E1", "#82BAE4", "#82BAE4","#66FFFF"]);
+
+                var highColorScale = d3.scaleQuantize()
+                  .domain( [d3.min(monthlyTemperatures, function(d) { return + d.maxTemperature; }), d3.max(monthlyTemperatures, function(d) { return + d.maxTemperature; })])
+                  .range(["rgb(255,255,191)","rgb(254,224,139)","rgb(253,174,97)","rgb(244,109,67)","rgb(213,62,79)","rgb(158,1,80)"]);
+              
+              // 初始时显示最高温度的颜色
+                var showMaxTemperatures = true;
+ 
+              // 创建一个组元素来容纳所有小矩形和坐标轴标签
+                var group = svg.append("g")
+                  .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+              
+              // 创建小矩形来表示每个月份的最高和最低气温
+                var rectSize = Math.min(rectWidth, rectHeight); // 确保每个色块为正方形
+                var rects = group.selectAll("rect")
+                    .data(monthlyTemperatures)
+                    .enter()
+                    .append("g")
+
+                rects.append("rect")
+                    .attr("x", function(d) {
+                      return (d.year - 1997) * rectWidth + rectWidth / 2 - rectSize / 2 + rectx; // 调整x坐标，使色块中心与坐标轴标签对齐，并添加rectx个像素的偏移量
+                    })
+                    .attr("y", function(d) {
+                      return (d.month - 1) * rectHeight + rectHeight / 2 - rectSize / 2 + recty; // 调整y坐标，使色块中心与坐标轴标签对齐，并添加recty个像素的偏移量
+                    })
+                    .attr("rx",2)
+                    .attr("ry",2)
+                    .attr("width", rectSize - rectPaddingx) // 减去padding个像素，创建窄的空白间隔
+                    .attr("height", rectSize - rectPaddingy) // 减去padding个像素，创建窄的空白间隔
+                    .attr("fill", function(d) {
+                      if (showMaxTemperatures) {
+                        return highColorScale(d.maxTemperature);
+                      } else {
+                        return lowColorScale(d.minTemperature);
+                      }
+                    })
+                  //点击切换界面
+                    .on("click", function() {
+                      showMaxTemperatures = !showMaxTemperatures;
+                      group.selectAll("rect")
+                        .attr("fill", function(d) {
+                          if (showMaxTemperatures) {
+                            return highColorScale(d.maxTemperature);
+                          } else {
+                            return lowColorScale(d.minTemperature);
+                          }
+                        });
+                    })
+                  //添加悬停放大效果
+                  .on('mouseover', function(e,d) {
+                        d3.select(this)
+                          .transition()
+                          .duration(200)
+                          .attr('width', rectSize - rectPaddingx +14 )
+                          .attr("height", rectHeight - rectPaddingy +14 )
+                          .attr("x", function(d) {
+                              return (d.year - 1997) * rectWidth + rectWidth / 2 - rectSize / 2 + rectx - 7; // 调整x坐标，使色块中心与坐标轴标签对齐，并添加1个像素的偏移量
+                          })
+                          .attr("y", function(d) {
+                              return (d.month - 1) * rectHeight + rectHeight / 2 - rectSize / 2 + recty - 7; // 调整y坐标，使色块中心与坐标轴标签对齐，并添加1个像素的偏移量
+                          })
+                    })
+                    .on('mouseout', function(e,d) {
+                        d3.select(this)
+                        .transition()
+                        .duration(600)
+                        .attr('width', rectSize - rectPaddingx )
+                        .attr("height", rectHeight - rectPaddingy )
+                        .attr("x", function(d) {
+                            return (d.year - 1997) * rectWidth + rectWidth / 2 - rectSize / 2 + rectx; // 调整x坐标，使色块中心与坐标轴标签对齐，并添加1个像素的偏移量
+                        })
+                        .attr("y", function(d) {
+                             return (d.month - 1) * rectHeight + rectHeight / 2 - rectSize / 2 + recty; // 调整y坐标，使色块中心与坐标轴标签对齐，并添加1个像素的偏移量
+                        })
+                    })
+                  //添加悬停提示框效果
+                    .append("title")
+                    .text(function(d){
+                      return "Date: " + d.year + "-" + ("0" + d.month).slice(-2) + " max: " + d.maxTemperature + " min: " + d.minTemperature;
+                    })
+                  
+
+
+          //坐标轴        
+                  
+              // 添加横轴标签
+
+                var xScale = d3.scaleLinear().domain([1996, 2017]).range([0, chartWidth]);
+                var xAxis = d3.axisTop(xScale).tickValues([1997,1998,1999,2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017]);
+                
+                group.append("g")
+                  .attr("transform","translate(0,-5)")
+                  .call(xAxis)
+                  .selectAll("text")
+                  .attr("class","tag")
+                  .attr("x", rectWidth / 2 - 25)
+                  .attr("y", -18)
+                  .attr("dy", "0.71em")
+                  .style("text-anchor", "middle");
+
+              // 添加纵轴标签
+                var monthNames = [' ',"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",''];
+                var yScale = d3.scaleLinear().domain([0, 12]).range([0, chartHeight-3]);
+                var yAxis = d3.axisLeft(yScale).tickFormat(function(d) {
+                  return monthNames[d];
+                });
+
+                group.append("g")
+                  .attr("transform","translate(18,-20)")
+                  .call(yAxis)
+                  .selectAll("text")
+                  .attr("class","tag")
+                  .attr("x", -10)
+                  .attr("y", rectHeight / 2 - 25)
+                  .attr("dy", "0.35em")
+                  .style("text-anchor", "end");
+                
+
+          //折线图
+
+              // 在每个小矩形中添加折线图
+                rects.each(function(d){
+                  var dailyTemperatures = groupedData.get(d.year).get(d.month);
+                  
+                  // 定义x和y比例尺
+                  plotx = (d.year - 1997) * rectWidth + rectWidth / 2 - rectSize / 2 + rectx ;
+                  ploty = (d.month - 1) * rectHeight + rectHeight / 2 - rectSize / 2 + recty ;
+                  var xScale = d3.scaleLinear()
+                    .domain(d3.extent(dailyTemperatures, d => d.date.getDate()))
+                    .range([plotx + 2, plotx + rectSize - rectPaddingx - 2]);
+                  var yScaleMax = d3.scaleLinear()  
+                    .domain([0,40])
+                    .range([ploty + rectSize - rectPaddingy - 2, ploty + 2]);
+                  var yScaleMin = d3.scaleLinear()
+                    .domain([0,40])
+                    .range([ploty + rectSize - rectPaddingy - 2, ploty + 2]);
+
+                  // 定义线生成器
+                  var lineMax = d3.line()
+                    .x(d => xScale(d.date.getDate()))
+                    .y(d => yScaleMax(d.maxTemperature));
+                  var lineMin = d3.line()
+                    .x(d => xScale(d.date.getDate()))
+                    .y(d => yScaleMin(d.minTemperature));
+
+                  // 在每个小矩形中添加两条折线
+                  d3.select(this)
+                    .append("path")
+                    .datum(dailyTemperatures)
+                    .attr("d", lineMax)
+                    .attr("class","lineMax")
+                   
+                  
+                  d3.select(this)
+                    .append("path")
+                    .datum(dailyTemperatures)
+                    .attr("d", lineMin)
+                    .attr("class","lineMin")
+                        
+              })
+
+
+          //图例
+             
+              //创建颜色集
+              var colors = ["#2319EF","#2777E1", "#82BAE4","#66FFFF","rgb(255,255,191)",
+              "rgb(254,224,139)","rgb(253,174,97)","rgb(244,109,67)","rgb(213,62,79)","rgb(158,1,80)"
+              ];
+              var legendSize = 30;
+              
+              //创建图例
+              var legend = group.append("g")
+                  .attr("transform","translate(1120,20)");
+                
+              //创建图例色块
+              var legendrect = legend.selectAll("rect")
+                  .data(colors)
+                  .enter()
+                  .append("rect")
+                  .attr("fill", d => d)
+                  .attr("x",0)
+                  .attr("y",(d,i) => i*legendSize )
+                  .attr("height", legendSize)
+                  .attr("width", legendSize);
+
+              //创建图例标签
+              var legendtag = legend.selectAll("text")
+                  .data(["0 Celsius","40 Celsius"])
+                  .enter()
+                  .append("text")
+                  .text( d => d)
+                  .attr("id","legendtag")
+                  .attr("x",0)
+                  .attr("y", (d,i) => i*11*legendSize - 10);
+
+
+
+      });
+
+        
+            
+
+        </script>
+    </body>
+</html>

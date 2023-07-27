@@ -1,0 +1,23 @@
+.tag {
+    font-family: sans-serif;
+    font-size: 12px;
+    font-weight: 450;
+}
+
+.lineMax {
+    stroke: rgb(12, 126, 12);
+    fill: none;
+    stroke-width: 1.2;
+}
+.lineMin {
+    stroke: rgb(176, 189, 229);
+    fill:none;
+    stroke-width: 1.2;
+}
+
+#legendtag {
+    font-family: sans-serif;
+    font-size: 12px;
+    font-weight:bold;
+}
+
